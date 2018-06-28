@@ -924,10 +924,12 @@ setTimeout(()=>{
 
             if (!motion[_indexAnimation])
                 return
-            blackboard.beginFill(0x1ed0e4);
-            blackboard.lineStyle(0);
-            blackboard.drawCircle(motion[_indexAnimation][0], motion[_indexAnimation][1], _raio);
-            blackboard.endFill();
+            if(!document.getElementById("pathPointsIsHide").checked) {
+                blackboard.beginFill(0x1ed0e4);
+                blackboard.lineStyle(0);
+                blackboard.drawCircle(motion[_indexAnimation][0], motion[_indexAnimation][1], _raio);
+                blackboard.endFill();
+            }
             emitter.ownerPos.x = motion[_indexAnimation][0] - (_raio / 2);
             emitter.ownerPos.y = motion[_indexAnimation][1] - (_raio / 2);
 
@@ -957,6 +959,8 @@ setTimeout(()=>{
 
         // function for painting screen
         function painting(e) {
+
+
 
             blackboard.beginFill(0x1ed0e4);
             blackboard.lineStyle(0);
