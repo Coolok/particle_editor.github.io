@@ -843,6 +843,16 @@
             window.app = new c
     }();
 
+var mPointsVisible = true;
+document.getElementById("pathPointsIsHide").onclick = function(){
+    mPointsVisible = !document.getElementById("pathPointsIsHide").checked
+};
+var dragStart= false;
+var dragEnd= true;
+
+var motion = [];
+var mPoints = [];
+
 setTimeout(()=>{
 
         var type = "WebGL"
@@ -865,7 +875,14 @@ setTimeout(()=>{
         var paint = new PIXI.Graphics();
         var blackboard = new PIXI.Graphics();
 
-        var motion = [];
+        var pointT = new PIXI.Graphics();
+        pointT.beginFill(0xFF00FF);
+        pointT.lineStyle(0);
+        pointT.drawCircle(0, 0, 10);
+        pointT.endFill();
+
+        var squareArray =[];
+
 
         // init patin brush
         var _raio = (window.matchMedia('(min-width: 48em)').matches) ? 3 : 30;
@@ -895,7 +912,7 @@ setTimeout(()=>{
         }
 
         function mouseUp(e) {
-            if (e.target.id !== "webgl")
+            if (e.target.id !== "webgl" && !dragStart && dragEnd)
                 return
             document.removeEventListener('mousemove', painting, true);
 
@@ -905,13 +922,28 @@ setTimeout(()=>{
         }
 
         function mouseDown(e) {
-            if (e.target.id !== "webgl")
-                return
-            document.getElementById("pathData").textContent = "";
-            document.addEventListener('mousemove', painting, true);
+            if (e.target.id === "webgl"&& !dragStart && dragEnd){
+                document.getElementById("pathData").textContent = "";
 
-            motion = [];
-            reset();
+                document.addEventListener('mousemove', painting, true);
+
+                motion = [];
+
+                reset();
+                squareArray.forEach((child)=>{
+                    if(child.id === "square"){
+                        child.visible=false;
+                        if(child.parent)child.parent.removeChild(child);
+                    }
+                });
+
+                squareArray =[];
+            } else {
+
+            }
+
+
+
         }
 
         function reset() {
@@ -924,11 +956,16 @@ setTimeout(()=>{
 
             if (!motion[_indexAnimation])
                 return
+
+
             if(!document.getElementById("pathPointsIsHide").checked) {
+                squareArray[_indexAnimation].visible = true;
                 blackboard.beginFill(0x1ed0e4);
                 blackboard.lineStyle(0);
                 blackboard.drawCircle(motion[_indexAnimation][0], motion[_indexAnimation][1], _raio);
                 blackboard.endFill();
+            } else {
+                squareArray[_indexAnimation].visible = false;
             }
             emitter.ownerPos.x = motion[_indexAnimation][0] - (_raio / 2);
             emitter.ownerPos.y = motion[_indexAnimation][1] - (_raio / 2);
@@ -959,15 +996,36 @@ setTimeout(()=>{
 
         // function for painting screen
         function painting(e) {
-
-
+            if (dragStart && !dragEnd)
+                return
+            let x = (e.offsetX || e.touches[0].clientX) - (_raio / 2);
+            let y = (e.offsetY || e.touches[0].clientY) - (_raio / 2);
 
             blackboard.beginFill(0x1ed0e4);
             blackboard.lineStyle(0);
-            blackboard.drawCircle((e.offsetX || e.touches[0].clientX) - (_raio / 2), (e.offsetY || e.touches[0].clientY) - (_raio / 2), _raio);
+            blackboard.drawCircle(x, y, _raio);
             blackboard.endFill();
 
             stage.addChild(blackboard);
+
+
+
+                var square = new PIXI.Sprite(pointT.generateTexture());
+                square.tint = 0xff0000;
+                square.id = "square";
+                square.pointT = motion.length;
+                square.anchor.x = 0.5;
+                square.anchor.y = 0.5;
+                square.dragging = true;
+                square.width = _raio*4;
+                square.height = _raio*4;
+                square.position.set(x, y);
+                stage.addChild(square);
+                addInteraction(square);
+                squareArray.push(square)
+
+
+
 
             motion.push([Math.ceil((e.offsetX || e.touches[0].clientX) - (_raio / 2)), Math.ceil((e.offsetY || e.touches[0].clientY))])
             document.getElementById("pathData").textContent += "[" + motion[motion.length-1] + "],";
@@ -979,3 +1037,72 @@ setTimeout(()=>{
 
     }
     , 3000)
+
+// === INTERACTION CODE  ===
+
+function addInteraction(obj) {
+    obj.interactive = true;
+    obj
+        .on('mousedown', onDragStart)
+        .on('mouseup', onDragEnd)
+        .on('mouseupoutside', onDragEnd)
+        .on('mousemove', onDragMove);
+}
+
+function onDragStart(event) {
+    var obj = event.target;
+    if (!obj || !obj.dragging) return;
+    dragEnd = false;
+    dragStart = true;
+    obj.dragData = event.data;
+    obj.dragging = 1;
+    obj.dragPointerStart = event.data.getLocalPosition(obj.parent);
+    obj.dragObjStart = new PIXI.Point();
+    obj.dragObjStart.copy(obj.position);
+    obj.dragGlobalStart = new PIXI.Point();
+    obj.dragGlobalStart.copy(event.data.global);
+}
+
+function onDragEnd(event) {
+    var obj = event.target;
+    if (!obj || !obj.dragging || !dragStart) return;
+    // if (obj.dragging == 1) {
+    //     toggle(obj);
+    // }
+    dragStart = false;
+    dragEnd = true;
+    obj.dragging = 0;
+    obj.dragData = null;
+
+    let path = "";
+    motion.forEach((point)=>{
+        path+="[" + Math.ceil(point[0]) + ","+Math.ceil( point[1])+ "],";
+    })
+    document.getElementById("pathData").textContent=path;
+    // set the interaction data to null
+}
+
+function onDragMove(event) {
+    var obj = event.target;
+    if (!obj || !obj.dragging || !obj.dragData) return;
+    var data = obj.dragData; // it can be different pointer!
+    if (obj.dragging == 1) {
+        // click or drag?
+        if (Math.abs(data.global.x - obj.dragGlobalStart.x) +
+            Math.abs(data.global.y - obj.dragGlobalStart.y) >= 3) {
+            // DRAG
+            obj.dragging = 2;
+        }
+    }
+    if (obj.dragging == 2) {
+        var dragPointerEnd = data.getLocalPosition(obj.parent);
+        // DRAG
+        motion[obj.pointT][0] =  obj.dragObjStart.x + (dragPointerEnd.x - obj.dragPointerStart.x);
+        motion[obj.pointT][1] =  obj.dragObjStart.y + (dragPointerEnd.y - obj.dragPointerStart.y)
+
+        obj.position.set(
+            obj.dragObjStart.x + (dragPointerEnd.x - obj.dragPointerStart.x),
+            obj.dragObjStart.y + (dragPointerEnd.y - obj.dragPointerStart.y)
+        );
+    }
+}
